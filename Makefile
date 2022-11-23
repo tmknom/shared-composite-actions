@@ -25,6 +25,7 @@ SHELL := /bin/bash
 #
 # Variables for the file and directory path
 #
+SELF_DIR ?= $(subst /Makefile,,$(lastword $(MAKEFILE_LIST)))
 ROOT_DIR ?= $(shell $(GIT) rev-parse --show-toplevel)
 YAML_FILES ?= $(shell find . -name '*.y*ml')
 
@@ -33,13 +34,11 @@ YAML_FILES ?= $(shell find . -name '*.y*ml')
 #
 GIT ?= $(shell \command -v git 2>/dev/null)
 GH ?= $(shell \command -v gh 2>/dev/null)
-GIT_EXCLUSIVES ?= ':!*.md' ':!Makefile' ':!VERSION' ':!.*' ':!.github/*'
 
 #
 # Variables to be used by Docker
 #
 DOCKER ?= $(shell \command -v docker 2>/dev/null)
-DOCKER_PULL ?= $(DOCKER) pull
 DOCKER_WORK_DIR ?= /work
 DOCKER_RUN_OPTIONS ?=
 DOCKER_RUN_OPTIONS += -it
@@ -58,39 +57,31 @@ SECURE_DOCKER_RUN ?= $(DOCKER_RUN) $(DOCKER_RUN_SECURE_OPTIONS)
 #
 # Variables for the image name
 #
-REGISTRY ?= ghcr.io/tmknom/dockerfiles
-PRETTIER ?= $(REGISTRY)/prettier:latest
-YAMLLINT ?= $(REGISTRY)/yamllint:latest
-ACTIONLINT ?= rhysd/actionlint:latest
+PRETTIER ?= $(SECURE_DOCKER_RUN) ghcr.io/tmknom/dockerfiles/prettier:latest
+YAMLLINT ?= $(SECURE_DOCKER_RUN) ghcr.io/tmknom/dockerfiles/yamllint:latest
+ACTDOCS ?= $(SECURE_DOCKER_RUN) ghcr.io/tmknom/actdocs:latest
 
 #
-# Variables for the version
+# CLI configs
 #
-VERSION ?= $(shell \cat VERSION)
-SEMVER ?= "v$(VERSION)"
-MAJOR_VERSION ?= $(shell version=$(SEMVER) && echo "$${version%%.*}")
-
-#
-# Test
-#
-.PHONY: test
-test: ## test
-	echo "fix me"
+define yamllint_config
+	if [[ -f $(ROOT_DIR)/.yamllint.yml ]]; then echo ".yamllint.yml"; \
+	elif [[ -f $(ROOT_DIR)/.yamllint.yaml ]]; then echo ".yamllint.yaml"; \
+	else echo "$(SELF_DIR)/.yamllint.yml"; \
+	fi
+endef
+YAMLLINT_CONFIG ?= $(shell $(call yamllint_config))
 
 #
 # Lint
 #
 .PHONY: lint
-lint: lint-yaml lint-action ## lint
+lint: lint-yaml ## lint
 
 .PHONY: lint-yaml
 lint-yaml:
-	$(SECURE_DOCKER_RUN) $(YAMLLINT) --strict --config-file .yamllint.yml .
-	$(SECURE_DOCKER_RUN) $(PRETTIER) --check --parser=yaml $(YAML_FILES)
-
-.PHONY: lint-action
-lint-action:
-	$(SECURE_DOCKER_RUN) $(ACTIONLINT) -color -ignore '"permissions" section should not be empty.'
+	$(YAMLLINT) --strict --config-file $(YAMLLINT_CONFIG) .
+	$(PRETTIER) --check --parser=yaml $(YAML_FILES)
 
 #
 # Format code
@@ -100,59 +91,25 @@ fmt: fmt-yaml ## format code
 
 .PHONY: fmt-yaml
 fmt-yaml:
-	$(SECURE_DOCKER_RUN) $(PRETTIER) --write --parser=yaml $(YAML_FILES)
+	$(PRETTIER) --write --parser=yaml $(YAML_FILES)
+
+#
+# Document management
+#
+.PHONY: docs
+docs: ## generate docs
+	$(ACTDOCS) inject --sort --file=README.md action.yml
 
 #
 # Release management
 #
+.PHONY: release
 release: ## release
-	$(GIT) tag --force --message "$(SEMVER)" "$(SEMVER)" && \
-	$(GIT) tag --force --message "$(SEMVER)" "$(MAJOR_VERSION)" && \
-	$(GIT) push --force origin "$(SEMVER)" && \
-	$(GIT) push --force origin "$(MAJOR_VERSION)"
-
-bump: input-version commit create-pr ## bump version
-
-input-version:
-	@echo "Current version: $(VERSION)" && \
-	read -rp "Input next version: " version && \
-	echo "$${version}" > VERSION
-
-commit:
-	$(GIT) switch -c "bump-$(SEMVER)" && \
-	$(GIT) add VERSION && \
-	$(GIT) commit -m "Bump up to $(SEMVER)"
-
-create-pr:
-	$(GIT) push origin $$($(GIT) rev-parse --abbrev-ref HEAD) && \
-	$(GH) pr create --title "Bump up to $(SEMVER)" --body "" --web
-
-#
-# Git shortcut
-#
-.PHONY: diff
-diff: ## git diff only features
-	@$(GIT) diff $(SEMVER)... -- $(GIT_EXCLUSIVES)
-
-.PHONY: log
-log: ## git log only features
-	@$(GIT) log $(SEMVER)... -- $(GIT_EXCLUSIVES)
-
-#
-# General
-#
-.PHONY: all
-all: clean install lint format test ## all
-
-.PHONY: install
-install: ## install docker images
-	$(DOCKER_PULL) $(PRETTIER)
-	$(DOCKER_PULL) $(YAMLLINT)
-	$(DOCKER_PULL) $(ACTIONLINT)
-
-.PHONY: clean
-clean: ## clean
 	echo "fix me"
+
+.PHONY: update-makefile
+update-makefile:
+	cd $(ROOT_DIR)/$(SELF_DIR) && git pull origin main
 
 .PHONY: help
 help: ## show help
