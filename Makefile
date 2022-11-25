@@ -27,7 +27,7 @@ SHELL := /bin/bash
 #
 SELF_DIR ?= $(subst /Makefile,,$(lastword $(MAKEFILE_LIST)))
 ROOT_DIR ?= $(shell $(GIT) rev-parse --show-toplevel)
-YAML_FILES ?= $(shell find . -name '*.y*ml')
+YAML_FILES ?= $(shell find . -name '*.y*ml' | grep -v $(SELF_DIR))
 
 #
 # Variables to be used by Git and GitHub CLI
