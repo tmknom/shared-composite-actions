@@ -2,8 +2,7 @@ name: Lint
 on:
   workflow_dispatch:
   pull_request:
-    paths:
-      - ".github/workflows/lint.yml"
+    paths: ["**.yml", "**.yaml"]
 
 permissions:
   contents: read
@@ -13,12 +12,5 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint-yaml:
-    uses: tmknom/workflows/.github/workflows/lint-yaml.yml@v1
-    with:
-      yamllint-config: ".yamllint.yml"
-  lint-action:
-    uses: tmknom/workflows/.github/workflows/lint-action.yml@v1
-    with:
-      actionlint-ignore-options: >
-        "permissions" section should not be empty.
+  lint:
+    uses: tmknom/github-actions-workflows/.github/workflows/lint.yml@v0
