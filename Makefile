@@ -25,9 +25,9 @@ SHELL := /bin/bash
 #
 # Variables for the file and directory path
 #
-SELF_DIR ?= $(subst /Makefile,,$(lastword $(MAKEFILE_LIST)))
+SHARED_DIR ?= $(subst /Makefile,,$(lastword $(MAKEFILE_LIST)))
 ROOT_DIR ?= $(shell $(GIT) rev-parse --show-toplevel)
-YAML_FILES ?= $(shell find . -name '*.y*ml' | grep -v $(SELF_DIR))
+YAML_FILES ?= $(shell find . -name '*.y*ml' | grep -v $(SHARED_DIR))
 
 #
 # Variables to be used by Git and GitHub CLI
@@ -67,7 +67,7 @@ ACTDOCS ?= $(SECURE_DOCKER_RUN) ghcr.io/tmknom/actdocs:latest
 define yamllint_config
 	if [[ -f $(ROOT_DIR)/.yamllint.yml ]]; then echo ".yamllint.yml"; \
 	elif [[ -f $(ROOT_DIR)/.yamllint.yaml ]]; then echo ".yamllint.yaml"; \
-	else echo "$(SELF_DIR)/.yamllint.yml"; \
+	else echo "$(SHARED_DIR)/.yamllint.yml"; \
 	fi
 endef
 YAMLLINT_CONFIG ?= $(shell $(call yamllint_config))
@@ -116,7 +116,7 @@ release: ## release new version
 
 .PHONY: update-makefile
 update-makefile:
-	cd $(ROOT_DIR)/$(SELF_DIR) && git pull origin main
+	cd $(ROOT_DIR)/$(SHARED_DIR) && git pull origin main
 
 .PHONY: help
 help: ## show help
